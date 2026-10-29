@@ -1,0 +1,530 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Virtual Tambola</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Outfit:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one column on phones, caller + board beside prize tools on desktop. Called numbers are orange balls on cool navy-grey paper. */
+:root{
+  --bg:#edf0f5; --surface:#ffffff; --ink:#111c33; --muted:#566178; --line:#d3d9e5;
+  --accent:#c2410c; --on-accent:#ffffff; --primary:#1d3a8a; --on-primary:#ffffff; --good:#157347; --good-bg:#e3f3ea;
+  --f-display:"Bowlby One","Arial Black",Impact,sans-serif; --f-body:"Outfit",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1322; --surface:#141d31; --ink:#e8edf7; --muted:#9aa6bd; --line:#26324a;
+  --accent:#ff8a4c; --on-accent:#1a0e05; --primary:#8fb0ff; --on-primary:#0c1322; --good:#6fd39b; --good-bg:#12301f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1322; --surface:#141d31; --ink:#e8edf7; --muted:#9aa6bd; --line:#26324a;
+  --accent:#ff8a4c; --on-accent:#1a0e05; --primary:#8fb0ff; --on-primary:#0c1322; --good:#6fd39b; --good-bg:#12301f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));font-variant-numeric:tabular-nums}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(24px,5vw,34px);margin:0;letter-spacing:.01em;text-wrap:balance}
+h2{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+.sub{color:var(--muted);margin:2px 0 0}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.tab{border:0;background:none;color:var(--muted);font:600 14px var(--f-body);padding:8px 16px;border-radius:9px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--primary);color:var(--on-primary)}
+.pill{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.pill.live{color:var(--good)}.pill.live i{background:var(--good)}
+.pill.wait{color:var(--accent)}.pill.wait i{background:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0}
+.grid2{display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:900px){.grid2{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+button,input,select{font:inherit;color:inherit}
+.btn{border:0;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer;background:var(--primary);color:var(--on-primary)}
+.btn.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.warn{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn.big{font-size:18px;padding:15px 26px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible,.cell.num:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input,select{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px 12px;min-width:0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row>input{flex:1 1 110px}
+.stage{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.ball{width:clamp(120px,30vw,168px);aspect-ratio:1;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-family:var(--f-display);font-size:clamp(48px,12vw,72px);box-shadow:inset 0 -8px 0 rgba(0,0,0,.14);flex:none}
+.ball.idle{background:transparent;border:3px dashed var(--line);color:var(--muted);font-family:var(--f-body);font-size:22px;font-weight:600;box-shadow:none}
+.callinfo{min-width:0;flex:1 1 200px}
+.nick{font-size:20px;font-weight:600;min-height:1.4em}
+.meta{color:var(--muted)}
+.recent{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.chip{min-width:34px;height:34px;padding:0 8px;border-radius:999px;border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:14px}
+.board{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px}
+.bn{aspect-ratio:1;display:grid;place-items:center;border-radius:50%;font-weight:600;font-size:clamp(11px,2.6vw,15px);background:var(--bg);color:var(--muted)}
+.bn.on{background:var(--accent);color:var(--on-accent);font-weight:700}
+.bn.last{outline:3px solid var(--ink);outline-offset:1px}
+.ticket{--h:220;--tint:color-mix(in srgb,hsl(var(--h) 65% 50%) 16%,var(--surface));border:2px solid color-mix(in srgb,hsl(var(--h) 60% 50%) 55%,var(--surface));border-radius:12px;padding:10px;background:var(--surface)}
+.ticket header{margin-bottom:8px}
+.ticket .tno{font-family:var(--f-display);font-size:18px}
+.tg{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:3px}
+.cell{aspect-ratio:1/.92;display:grid;place-items:center;border-radius:8px;font-weight:700;font-size:clamp(13px,3.6vw,22px);border:1px solid transparent}
+.cell.blank{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--line) 5px 6px)}
+.cell.num{background:var(--tint);cursor:pointer;color:var(--ink)}
+.cell.num.on{background:var(--accent);color:var(--on-accent);border-radius:50%}
+.cell.num.hand{border-color:var(--accent)}
+.tstat{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:10px;color:var(--muted)}
+.claim{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--good-bg);color:var(--good);font-weight:600}
+.prizes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.prize{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.prize b{font-weight:600}
+.prize.won{background:var(--good-bg);border-color:transparent}
+.prize .who{color:var(--good);font-weight:700}
+.prize .ctl{display:flex;gap:6px;flex:1 1 220px;justify-content:flex-end}
+.prize .ctl input{flex:1 1 90px;padding:7px 10px}
+.prize .ctl .btn{padding:7px 12px;font-size:14px}
+.res{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+.res li{padding:7px 10px;border-radius:8px;background:var(--bg);color:var(--muted);font-weight:600}
+.res li.yes{background:var(--good-bg);color:var(--good)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.hint{color:var(--muted);font-size:13px;margin:8px 0 0}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:no-preference){.ball:not(.idle){animation:pop .35s ease-out}@keyframes pop{from{transform:scale(.7)}to{transform:scale(1)}}}
+</style>
+
+<script>
+/* ONE-TIME SETUP: paste your Firebase Realtime Database URL between the quotes, for example
+   "https://my-tambola-default-rtdb.firebaseio.com"   (see README.md for the 2-minute setup) */
+window.TAMBOLA_FIREBASE_URL="https://tambola-5785a-default-rtdb.firebaseio.com";
+</script>
+<div class="wrap">
+  <section class="card" id="setup" hidden><h2>Setup needed</h2><p style="margin:0">This page needs a free Firebase Realtime Database to connect players. Open <b>index.html</b>, paste the database URL into <code>TAMBOLA_FIREBASE_URL</code> near the top, and save. Steps are in README.md.</p></section>
+  <header>
+    <div>
+      <h1>Virtual Tambola</h1>
+      <p class="sub">Housie for up to 60 players, 90 numbers, six prizes</p>
+    </div>
+    <div class="bar">
+      <span class="pill" id="pill"><i></i><span id="pillText">Connecting</span></span>
+      <button class="btn alt" id="hostBtn" type="button" style="padding:8px 14px">Host login</button><div class="tabs" role="tablist" aria-label="View">
+        <button class="tab" role="tab" id="tabPlay" aria-selected="true">My ticket</button>
+        <button class="tab" role="tab" id="tabHost" aria-selected="false" hidden>Host</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- PLAYER VIEW -->
+  <main id="viewPlay" class="grid2">
+    <div class="stack">
+      <section class="card">
+        <h2>Latest number</h2>
+        <div class="stage">
+          <div class="ball idle" id="pBall">Ready</div>
+          <div class="callinfo">
+            <div class="nick" id="pNick"></div>
+            <div class="meta" id="pCount">0 of 90 called</div>
+            <div class="recent" id="pRecent" aria-label="Previous numbers"></div>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <h2>Your ticket</h2>
+        <form class="row" id="pForm">
+          <input id="pNo" type="number" inputmode="numeric" min="1" max="60" placeholder="Ticket (optional)" aria-label="Ticket number">
+          <input id="pName" type="text" maxlength="30" placeholder="Your name" aria-label="Your name">
+          <button class="btn" type="submit">Join game</button>
+        </form>
+        <div id="pTicket" style="margin-top:14px"></div>
+        <p class="hint" id="pHint">Enter your name and tap Join to get the next free ticket, or type a ticket number if the host gave you one.</p>
+      </section>
+    </div>
+    <div class="stack">
+      <section class="card"><h2>Prizes</h2><ul class="prizes" id="pPrizes"></ul></section>
+      <section class="card"><h2>Called numbers</h2><div class="board" id="pBoard"></div></section>
+    </div>
+  </main>
+
+  <!-- HOST VIEW -->
+  <main id="viewHost" class="grid2" hidden>
+    <div class="stack">
+      <section class="card">
+        <h2>Caller</h2>
+        <div class="stage">
+          <div class="ball idle" id="hBall">Ready</div>
+          <div class="callinfo">
+            <div class="nick" id="hNick"></div>
+            <div class="meta" id="hCount">0 of 90 called</div>
+            <div class="recent" id="hRecent"></div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:16px">
+          <button class="btn big" id="bNext">Call next number</button>
+          <button class="btn alt" id="bUndo">Undo</button>
+          <button class="btn warn" id="bReset">New game</button>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <label class="row" style="gap:6px"><input type="checkbox" id="auto" style="flex:none"> Auto-call every</label>
+          <select id="autoSec" aria-label="Auto-call interval"><option value="6">6 s</option><option value="10" selected>10 s</option><option value="15">15 s</option><option value="20">20 s</option></select>
+        </div>
+        <p class="hint" id="hSync">Players who open the link see each number live.</p>
+      </section>
+      <section class="card"><h2>Board</h2><div class="board" id="hBoard"></div></section>
+    </div>
+    <div class="stack">
+      <section class="card">
+        <h2>Prizes</h2>
+        <ul class="prizes" id="hPrizes"></ul>
+      </section>
+      <section class="card">
+        <h2>Check a claim</h2>
+        <form class="row" id="vForm">
+          <input id="vNo" type="number" inputmode="numeric" min="1" max="60" placeholder="Ticket no." aria-label="Ticket to check">
+          <button class="btn" type="submit">Check ticket</button>
+        </form>
+        <div id="vOut" style="margin-top:12px"></div>
+      </section>
+      <section class="card">
+        <h2>Players and tickets</h2>
+        <form class="row" id="aForm">
+          <input id="aName" type="text" maxlength="30" placeholder="Participant name" aria-label="Participant name">
+          <input id="aNo" type="number" inputmode="numeric" min="1" max="60" placeholder="Ticket" aria-label="Ticket number" style="flex:0 1 90px">
+          <button class="btn" type="submit">Assign</button>
+        </form>
+        <p class="hint" id="aInfo"></p>
+        <div class="tablewrap"><table><thead><tr><th>Ticket</th><th>Participant</th><th></th></tr></thead><tbody id="aRows"></tbody></table></div>
+        <div class="row" style="margin-top:12px"><button class="btn alt" id="aCopy" type="button">Copy list</button><button class="btn warn" id="aClear" type="button">Remove all</button></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var esc=function(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var store={get:function(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+/* ---------- Tickets: fixed per ticket number, so a refresh never changes anyone's ticket ---------- */
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function makeTicket(rand){
+  function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(rand()*(i+1));var x=a[i];a[i]=a[j];a[j]=x}return a}
+  var counts=[1,1,1,1,1,1,1,1,1],extra=6;
+  while(extra){var c=Math.floor(rand()*9);if(counts[c]<3){counts[c]++;extra--}}
+  var subs={1:[[0],[1],[2]],2:[[0,1],[0,2],[1,2]],3:[[0,1,2]]};
+  var rows=[0,0,0],pick=[];
+  function dfs(c){
+    if(c===9)return rows[0]===5&&rows[1]===5&&rows[2]===5;
+    var opts=shuffle(subs[counts[c]].slice());
+    for(var k=0;k<opts.length;k++){
+      var s=opts[k];
+      if(s.some(function(r){return rows[r]>=5}))continue;
+      s.forEach(function(r){rows[r]++});pick[c]=s;
+      if(dfs(c+1))return true;
+      s.forEach(function(r){rows[r]--});
+    }
+    return false;
+  }
+  if(!dfs(0))return makeTicket(rand);
+  var grid=[[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0]];
+  for(var col=0;col<9;col++){
+    var lo=col===0?1:col*10,hi=col===8?90:col*10+9,pool=[];
+    for(var n=lo;n<=hi;n++)pool.push(n);
+    shuffle(pool);
+    var nums=pool.slice(0,counts[col]).sort(function(a,b){return a-b});
+    pick[col].forEach(function(r,i){grid[r][col]=nums[i]});
+  }
+  return grid;
+}
+var TICKETS=(function(){var out=[],seen={};for(var i=0;i<60;i++){var a=0,t,key;do{t=makeTicket(rng(26100+i*7919+a*104729));key=JSON.stringify(t);a++}while(seen[key]);seen[key]=1;out.push(t)}return out})();
+
+/* ---------- Game rules ---------- */
+var PRIZES=[["early5","Early Five","First to mark any five numbers"],["corners","Four Corners","First and last number of the top and bottom rows"],["top","Top Line","All five numbers in the top row"],["middle","Middle Line","All five numbers in the middle row"],["bottom","Bottom Line","All five numbers in the bottom row"],["full","Full House","All fifteen numbers"]];
+var NICK={1:"Kelly's eye",2:"One little duck",7:"Lucky seven",11:"Legs eleven",13:"Unlucky for some",22:"Two little ducks",44:"Droopy drawers",57:"Heinz varieties",66:"Clickety click",77:"Sunset strip",88:"Two fat ladies",90:"Top of the shop"};
+function ticketRows(n){return TICKETS[n-1].map(function(r){return r.filter(Boolean)})}
+function evaluate(n,called){
+  var rows=ticketRows(n),hit=function(x){return called.has(x)};
+  var all=rows[0].concat(rows[1],rows[2]),cnt=all.filter(hit).length;
+  var cor=[rows[0][0],rows[0][4],rows[2][0],rows[2][4]];
+  return {count:cnt,early5:cnt>=5,corners:cor.every(hit),top:rows[0].every(hit),middle:rows[1].every(hit),bottom:rows[2].every(hit),full:cnt===15};
+}
+
+/* ---------- State ---------- */
+var st={g:1,called:[],prizes:{}};          // shared game state, lives in Firebase
+var me=store.get("tambola.me.v1",{t:0,name:"",g:0,marks:[]});
+var uid=store.get("tambola.uid",null);
+if(!uid){uid="p"+Math.random().toString(36).slice(2,10)+Date.now().toString(36);store.set("tambola.uid",uid)}
+var assign={},docOf={},claimsOf={},nPlayers=0;
+var isHost=false,autoTimer=null,resetArm=0,clearArm=0;
+function calledSet(){return new Set(st.called)}
+function saveMe(){store.set("tambola.me.v1",me)}
+
+/* ---------- Renderers ---------- */
+function renderBall(prefix){
+  var b=$(prefix+"Ball"),last=st.called[st.called.length-1];
+  if(last){b.textContent=last;b.className="ball"}else{b.textContent="Ready";b.className="ball idle"}
+  $(prefix+"Nick").textContent=last?(NICK[last]||""):"";
+  $(prefix+"Count").textContent=st.called.length+" of 90 called";
+  var rec=st.called.slice(0,-1).slice(-7).reverse();
+  $(prefix+"Recent").innerHTML=rec.map(function(n){return '<span class="chip">'+n+'</span>'}).join("");
+}
+function renderBoard(id){
+  var set=calledSet(),last=st.called[st.called.length-1],h="";
+  for(var i=1;i<=90;i++)h+='<div class="bn'+(set.has(i)?' on':'')+(i===last?' last':'')+'">'+i+'</div>';
+  $(id).innerHTML=h;
+}
+function ticketHTML(n,opts){
+  opts=opts||{};
+  var set=calledSet(),hand=new Set(opts.marks||[]),t=TICKETS[n-1],h="";
+  t.forEach(function(r){r.forEach(function(v){
+    if(!v)h+='<div class="cell blank"></div>';
+    else{var on=set.has(v)||hand.has(v);
+      h+='<div class="cell num'+(on?' on':'')+(hand.has(v)&&!set.has(v)?' hand':'')+'" data-n="'+v+'"'+(opts.tap?' role="button" tabindex="0" aria-pressed="'+on+'"':'')+'>'+v+'</div>'}
+  })});
+  return '<div class="ticket" style="--h:'+((n*37)%360)+'"><header><span class="tno">Ticket '+n+'</span>'+(opts.name?'<span class="meta">'+esc(opts.name)+'</span>':'')+'</header><div class="tg">'+h+'</div></div>';
+}
+function prizeName(k){var p=PRIZES.filter(function(x){return x[0]===k})[0];return p?p[1]:k}
+function renderPrizes(){
+  var pl=PRIZES.map(function(p){var w=st.prizes[p[0]];
+    return '<li class="prize'+(w?' won':'')+'"><span><b>'+p[1]+'</b><br><span class="meta">'+p[2]+'</span></span>'+(w?'<span class="who">'+esc(w)+'</span>':'<span class="meta">Open</span>')+'</li>'}).join("");
+  $("pPrizes").innerHTML=pl;
+  if(!isHost)return;
+  $("hPrizes").innerHTML=PRIZES.map(function(p){var w=st.prizes[p[0]];
+    return '<li class="prize'+(w?' won':'')+'"><span><b>'+p[1]+'</b></span>'+(w
+      ?'<span class="ctl"><span class="who" style="align-self:center">'+esc(w)+'</span><button class="btn alt" data-clear="'+p[0]+'" type="button">Reopen</button></span>'
+      :'<span class="ctl"><input type="text" maxlength="30" placeholder="Winner" aria-label="Winner of '+p[1]+'" id="w_'+p[0]+'"><button class="btn" data-award="'+p[0]+'" type="button">Award</button></span>')+'</li>'}).join("");
+}
+function renderPlayerTicket(){
+  var box=$("pTicket");
+  if(!me.t){box.innerHTML='<p class="meta" style="margin:0">Enter the ticket number your host sent you.</p>';return}
+  var ev=evaluate(me.t,new Set(st.called.concat(me.marks)));
+  var set=calledSet(),mine=evaluate(me.t,set);
+  var wins=PRIZES.filter(function(p){return mine[p[0]]&&!st.prizes[p[0]]}).map(function(p){return p[1]});
+  box.innerHTML=ticketHTML(me.t,{name:me.name,marks:me.marks,tap:true})
+    +'<div class="tstat"><span>'+mine.count+' of 15 called</span><span>'+(15-mine.count)+' to go</span></div>'
+    +(wins.length?'<div class="claim">You qualify for '+esc(wins.join(", "))+'. '+(me.claimed&&me.claimed===wins.join()?'Host notified.':'<button class="btn" type="button" data-claim="1" style="margin-left:8px;padding:6px 12px">Tell the host</button>')+'</div>':'');
+}
+function renderAll(){
+  renderBall("p");renderBoard("pBoard");renderPrizes();renderPlayerTicket();
+  if(isHost){renderBall("h");renderBoard("hBoard");renderVerify()}
+}
+
+/* ---------- Connection pill ---------- */
+function setPill(cls,text){$("pill").className="pill "+cls;$("pillText").textContent=text}
+function updatePill(){
+  if(!FB){setPill("","Setup needed: add Firebase URL");return}
+  if(!online){setPill("wait","Connecting");return}
+  setPill("live",nPlayers+" player"+(nPlayers===1?"":"s")+" joined, live");
+}
+
+/* ---------- Shared database: Firebase Realtime Database over plain REST ---------- */
+var FB=String(window.TAMBOLA_FIREBASE_URL||"").trim().replace(/\/+$/,"");
+var ROOM=(location.hash.slice(1)||"main").replace(/[^A-Za-z0-9_-]/g,"").slice(0,30)||"main";
+var base=FB?FB+"/tambola/"+ROOM:"";
+var online=false,hostLoaded=false,kickT=null;
+function api(method,path,body){
+  return fetch(base+path+".json",{method:method,body:body===undefined?undefined:JSON.stringify(body)})
+    .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
+}
+function sha(t){
+  try{return crypto.subtle.digest("SHA-256",new TextEncoder().encode("tambola:"+t)).then(function(b){
+    return Array.prototype.map.call(new Uint8Array(b),function(x){return("0"+x.toString(16)).slice(-2)}).join("")})}
+  catch(e){return Promise.resolve("plain:"+t)}
+}
+function pushState(){
+  if(!FB||!isHost)return;
+  api("PUT","/game",{g:st.g,c:st.called,p:st.prizes}).catch(function(){online=false;updatePill()});
+}
+function changed(){renderAll();pushState()}
+function refresh(){
+  if(!FB)return Promise.resolve();
+  return api("GET","").then(function(d){online=true;onRoom(d||{})},function(){online=false;updatePill()});
+}
+function kick(){clearTimeout(kickT);kickT=setTimeout(refresh,150)}
+function onRoom(d){
+  var saved=store.get("tambola.hp",null);
+  if(!isHost&&saved&&d.pin&&saved===d.pin)becomeHost();
+  var g=d.game;
+  if(g&&(!isHost||!hostLoaded))applyGame(g);
+  if(isHost)hostLoaded=true;
+  onPlayers(d.players||{});
+}
+function applyGame(d){
+  var c=Array.isArray(d.c)?d.c:(d.c&&typeof d.c==="object"?Object.keys(d.c).map(function(k){return d.c[k]}):[]);
+  if(typeof d.g!=="number")return;
+  var seen={},ok=c.every(function(n){if(!Number.isInteger(n)||n<1||n>90||seen[n])return false;seen[n]=1;return true});
+  if(!ok)return;
+  var pz={};
+  if(d.p&&typeof d.p==="object")PRIZES.forEach(function(p){var v=d.p[p[0]];if(typeof v==="string"&&v)pz[p[0]]=v.slice(0,30)});
+  if(me.g!==d.g){me.marks=[];me.g=d.g;saveMe()}
+  st={g:d.g,called:c.slice(0,90),prizes:pz};
+  renderAll();
+}
+function freeTicket(skipId){
+  for(var i=1;i<=60;i++){if(!assign[i]||docOf[i]===skipId)return i}
+  return 0;
+}
+function onPlayers(obj){
+  assign={};docOf={};claimsOf={};var mine=null,rows=[];
+  var ids=Object.keys(obj).filter(function(k){return obj[k]&&typeof obj[k]==="object"});
+  nPlayers=ids.length;
+  ids.forEach(function(id){
+    var d=obj[id];if(!Number.isInteger(d.t)||d.t<1||d.t>60)return;
+    rows.push({id:id,t:d.t,ts:d.ts||0});
+    if(!assign[d.t]){assign[d.t]=String(d.name||"Player").slice(0,30);docOf[d.t]=id;
+      var cl=Array.isArray(d.claims)?d.claims:(d.claims?Object.keys(d.claims).map(function(k){return d.claims[k]}):[]);
+      if(cl.length)claimsOf[d.t]=cl}
+    if(id===uid)mine=d;
+  });
+  if(mine&&!me.t){me.t=mine.t;me.name=mine.name||"";me.g=st.g;saveMe();$("pNo").value=me.t;$("pName").value=me.name}
+  if(mine&&me.t===mine.t){
+    var clash=rows.some(function(r){return r.t===mine.t&&r.id!==uid&&(r.ts<(mine.ts||0)||(r.ts===(mine.ts||0)&&r.id<uid))});
+    if(clash){var f=freeTicket();if(f){me.t=f;me.marks=[];saveMe();$("pNo").value=f;
+      api("PUT","/players/"+uid,{t:f,name:me.name||"Player",ts:Date.now()}).then(kick,function(){});
+      $("pHint").textContent="That ticket was taken a moment earlier, so you now have ticket "+f+"."}}
+  }
+  renderAssign();renderPlayerTicket();updatePill();
+}
+function joinGame(want){
+  var name=$("pName").value.trim().slice(0,30)||"Player";
+  me.name=name;
+  if(FB&&online){
+    var n=want;
+    if(n&&assign[n]&&docOf[n]!==uid){$("pHint").textContent="Ticket "+n+" is already taken by "+assign[n]+". Leave it blank for the next free ticket.";return}
+    if(!n)n=(me.t&&assign[me.t]&&docOf[me.t]===uid)?me.t:freeTicket(uid);
+    if(!n){$("pHint").textContent="All 60 tickets are taken.";return}
+    me.t=n;me.marks=[];me.g=st.g;saveMe();$("pNo").value=n;
+    api("PUT","/players/"+uid,{t:n,name:name,ts:Date.now()}).then(function(){
+      $("pHint").textContent="You are in. Called numbers light up on their own. You can also tap a number to mark it yourself.";kick()
+    },function(){$("pHint").textContent="Could not join the game. Check your connection and try again."});
+  }else if(want){
+    me.t=want;me.marks=[];me.g=st.g;saveMe();
+    $("pHint").textContent="Offline: tap numbers to mark them yourself."
+  }else{$("pHint").textContent="Not connected yet. Type the ticket number your host gave you, or try again in a moment."}
+  renderPlayerTicket();
+}
+function becomeHost(){
+  isHost=true;hostLoaded=true;
+  $("tabHost").hidden=false;$("hostBtn").hidden=true;showTab("host");
+  $("hSync").textContent="Share this link with players: "+location.href.split("#")[0]+(ROOM==="main"?"":"#"+ROOM)+" . Keep this tab open while auto-calling.";
+  renderAll();
+}
+function hostLogin(){
+  if(!FB||!online){alert("Not connected to the database yet.");return}
+  var pin=prompt("Host PIN. If this game has no PIN yet, the one you type now becomes the host PIN.");
+  if(!pin)return;
+  sha(pin).then(function(h){
+    return api("GET","/pin").then(function(cur){
+      if(cur&&cur!==h){alert("Wrong PIN.");return}
+      return (cur?Promise.resolve():api("PUT","/pin",h)).then(function(){store.set("tambola.hp",h);becomeHost()});
+    });
+  }).catch(function(){alert("Could not reach the database.")});
+}
+
+/* ---------- Host actions ---------- */
+function callNext(){
+  if(st.called.length>=90){return}
+  var left=[];for(var i=1;i<=90;i++)if(st.called.indexOf(i)<0)left.push(i);
+  var buf=new Uint32Array(1);crypto.getRandomValues(buf);
+  st.called.push(left[buf[0]%left.length]);changed();
+  if(st.called.length>=90)stopAuto();
+}
+function undo(){if(st.called.length){st.called.pop();changed()}}
+function stopAuto(){clearInterval(autoTimer);autoTimer=null;$("auto").checked=false}
+function renderVerify(){}
+function verify(n){
+  if(!n||n<1||n>60){$("vOut").innerHTML='<p class="meta" style="margin:0">Enter a ticket from 1 to 60.</p>';return}
+  var ev=evaluate(n,calledSet()),who=assign[n];
+  $("vOut").dataset.n=n;
+  $("vOut").innerHTML=ticketHTML(n,{name:who||""})+'<ul class="res">'+PRIZES.map(function(p){return '<li class="'+(ev[p[0]]?'yes':'')+'">'+(ev[p[0]]?'✓ ':'')+p[1]+'</li>'}).join("")+'</ul><p class="hint">'+ev.count+' of 15 numbers called on this ticket.</p>';
+}
+function renderAssign(){
+  var keys=Object.keys(assign).map(Number).sort(function(a,b){return a-b});
+  $("aRows").innerHTML=keys.map(function(k){
+    var cl=claimsOf[k]?'<br><b style="color:var(--good)">Claims: '+esc(claimsOf[k].map(prizeName).join(", "))+'</b>':'';
+    return '<tr><td>'+k+'</td><td>'+esc(assign[k])+cl+'</td><td><button class="btn alt" data-unassign="'+k+'" type="button" style="padding:5px 10px;font-size:13px">Remove</button></td></tr>'}).join("")||'<tr><td colspan="3" class="meta">Nobody has joined yet.</td></tr>';
+  var free=freeTicket();
+  $("aInfo").textContent=keys.length+" of 60 tickets in use"+(free?". Next free ticket: "+free+".":".");
+  $("aNo").placeholder=free?String(free):"Ticket";
+}
+
+/* ---------- Wiring ---------- */
+function showTab(which){
+  var host_=which==="host"&&isHost;
+  $("viewPlay").hidden=host_;$("viewHost").hidden=!host_;
+  $("tabPlay").setAttribute("aria-selected",String(!host_));$("tabHost").setAttribute("aria-selected",String(host_));
+}
+$("tabPlay").onclick=function(){showTab("play")};
+$("tabHost").onclick=function(){showTab("host")};
+
+$("pForm").onsubmit=function(e){
+  e.preventDefault();
+  var n=parseInt($("pNo").value,10)||0;
+  if(n&&(n<1||n>60)){$("pHint").textContent="Ticket numbers run from 1 to 60.";return}
+  joinGame(n);
+};
+$("hostBtn").onclick=hostLogin;
+function toggleMark(el){
+  var v=el.getAttribute("data-n");if(!v)return;v=parseInt(v,10);
+  var i=me.marks.indexOf(v);if(i<0)me.marks.push(v);else me.marks.splice(i,1);
+  saveMe();renderPlayerTicket();
+}
+$("pTicket").addEventListener("click",function(e){
+  if(e.target.getAttribute("data-claim")&&FB&&online){
+    var mine=evaluate(me.t,calledSet()),keys=PRIZES.filter(function(p){return mine[p[0]]&&!st.prizes[p[0]]}).map(function(p){return p[0]});
+    me.claimed=keys.map(prizeName).join();saveMe();
+    api("PUT","/players/"+uid,{t:me.t,name:me.name||"Player",ts:Date.now(),claims:keys}).then(function(){renderPlayerTicket();kick()},function(){});return}
+  var c=e.target.closest(".cell.num");if(c)toggleMark(c)});
+$("pTicket").addEventListener("keydown",function(e){if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("num")){e.preventDefault();toggleMark(e.target)}});
+
+$("bNext").onclick=callNext;
+$("bUndo").onclick=undo;
+$("bReset").onclick=function(){
+  var b=$("bReset");
+  if(Date.now()-resetArm>4000){resetArm=Date.now();b.textContent="Tap again to confirm";setTimeout(function(){b.textContent="New game"},4000);return}
+  resetArm=0;b.textContent="New game";stopAuto();st={g:st.g+1,called:[],prizes:{}};changed();
+};
+$("auto").onchange=function(){
+  clearInterval(autoTimer);autoTimer=null;
+  if($("auto").checked)autoTimer=setInterval(callNext,parseInt($("autoSec").value,10)*1000);
+};
+$("autoSec").onchange=function(){if($("auto").checked)$("auto").onchange()};
+$("hPrizes").addEventListener("click",function(e){
+  var a=e.target.getAttribute("data-award"),c=e.target.getAttribute("data-clear");
+  if(a){var v=$("w_"+a).value.trim();if(!v)return;st.prizes[a]=v.slice(0,30);changed()}
+  if(c){delete st.prizes[c];changed()}
+});
+$("vForm").onsubmit=function(e){e.preventDefault();verify(parseInt($("vNo").value,10))};
+$("aForm").onsubmit=function(e){
+  e.preventDefault();
+  var name=$("aName").value.trim(),n=parseInt($("aNo").value,10)||freeTicket();
+  if(!name||!n||n<1||n>60||!FB)return;
+  if(assign[n]){$("aInfo").textContent="Ticket "+n+" already belongs to "+assign[n]+".";return}
+  api("PUT","/players/m"+n,{t:n,name:name.slice(0,30),ts:Date.now()}).then(kick,function(){});$("aName").value="";$("aNo").value="";
+};
+$("aRows").addEventListener("click",function(e){var k=e.target.getAttribute("data-unassign");if(k&&FB&&docOf[k])api("DELETE","/players/"+docOf[k]).then(kick,function(){})});
+$("aCopy").onclick=function(){
+  var keys=Object.keys(assign).map(Number).sort(function(a,b){return a-b});
+  var text=keys.map(function(k){return "Ticket "+k+": "+assign[k]}).join("\n");
+  var b=$("aCopy");
+  function done(ok){b.textContent=ok?"Copied":"Select and copy from the table";setTimeout(function(){b.textContent="Copy list"},2000)}
+  try{navigator.clipboard.writeText(text).then(function(){done(true)},function(){done(false)})}catch(err){done(false)}
+};
+$("aClear").onclick=function(){
+  var b=$("aClear");
+  if(Date.now()-clearArm>4000){clearArm=Date.now();b.textContent="Tap again to confirm";setTimeout(function(){b.textContent="Remove all"},4000);return}
+  clearArm=0;b.textContent="Remove all";
+  if(FB)api("DELETE","/players").then(kick,function(){});
+};
+
+/* ---------- Boot ---------- */
+if(me.t){$("pNo").value=me.t;$("pName").value=me.name||""}
+renderAll();renderAssign();updatePill();
+if(!FB){$("setup").hidden=false}
+else{
+  refresh();
+  setInterval(refresh,6000);
+  try{var es=new EventSource(base+".json");es.addEventListener("put",kick);es.addEventListener("patch",kick)}catch(e){}
+}
+setInterval(updatePill,3000);
+})();
+</script>
+
+</body></html>
